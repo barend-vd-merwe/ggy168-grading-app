@@ -9,22 +9,16 @@ from io import BytesIO
 from streamlit_image_zoom import image_zoom
 import base64
 from datetime import datetime
+import yaml
+from streamlit_gsheets import GSheetsConnection
+from pathlib import Path
+import gc
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # custom functions
 # ------------------------------------------------------------
-def prac_viewer(img, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
-    if isinstance(img, Image.Image):
-        pil_img = img
-    else:
-        pil_img = Image.open(img)
-
-    buffered = BytesIO()
-    if pil_img.mode in ("RGB", "P"):
-        pil_img = pil_img.convert("RGB")
-
-    pil_img.save(buffered, format="JPEG", quality=95)
-    img_b64 = base64.b64encode(buffered.getvalue()).decode()
-
+def submission_viewer(img_url, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
     # openseadragon
     html_osd = f"""
     <!DOCTYPE html>
@@ -35,14 +29,14 @@ def prac_viewer(img, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
             body {{
     margin: 0;
     padding: 0;
-    background-color: #0e1117;
+    background-color: #F5F5DC;
     height: 100%;
     width: 100%;
     overflow: hidden;}}
             #openseadragon-container {{
                 width: 100vw;
                 height: 100vh;
-                background: #111827;
+                background: #F5F5DC;
                 border: 10px solid #374151;
                 border-radius: 8px;
     box-sizing: border-box;
@@ -57,7 +51,7 @@ def prac_viewer(img, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: {{
                     type: 'image',
-                    url:  'data:image/jpeg;base64,{img_b64}'
+                    url:  '{img_url}'
                 }},
                 // Performance and Zoom configuration
                 maxZoomPixelRatio: {max_zoom_ratio},
@@ -81,7 +75,7 @@ def prac_viewer(img, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
     </body>
     </html>
     """
-    st.components.v1.html(html_osd, height=height, scrolling=False)
+    st.iframe(html_osd, height=height)
 
 # ------------------------------------------------------------
 def grade_submission():
@@ -228,25 +222,29 @@ def grade_submission():
     total = float(q1["grade"].sum() + q2["grade"].sum())
     st.session_state["q1"] = str(float(q1["grade"].sum()))
     st.session_state["q2"] = str(float(q2["grade"].sum()))
-    st.session_state["grade"] = str(total)
+    st.session_state["final"] = str(total)
+    st.session_state["final_grade_prcnt"] = (total / 32) * 100
 
-    # student details
-    student_id = name + " " + surname + " (" + emplid + ")"
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    gc = conn.read(ttl=0)
+    column_name = "Practical assignment 1 [Total Pts: 32 Percentage] |2934606"
+    gc.loc[gc["Username"] == emplid, column_name] = st.session_state["final_grade_prcnt"]
+    conn.update(data=gc)
     
     # add text to image
-    cv.putText(cv_img, str(total), (824,446), cv.FONT_HERSHEY_SIMPLEX, 3.0, (0,0,255), 1)
-    cv.putText(cv_img, student_id, (1150,442), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q1a: {str(q1.loc[q1.index[0], 'grade'])}", (1150,517), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q1b: {str(q1.loc[q1.index[1], 'grade'])}", (1150,592), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q1c: {str(q1.loc[q1.index[2], 'grade'])}", (1150,667), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q1d: {str(q1.loc[q1.index[3], 'grade'])}", (1150,742), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, str(total), (824,446), cv.FONT_HERSHEY_SIMPLEX, 3.0, (0,0,255), 1)
+    cv.putText(warped_img, st.session_state["student"], (1150,442), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q1a: {str(q1.loc[q1.index[0], 'grade'])}", (1150,517), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q1b: {str(q1.loc[q1.index[1], 'grade'])}", (1150,592), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q1c: {str(q1.loc[q1.index[2], 'grade'])}", (1150,667), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q1d: {str(q1.loc[q1.index[3], 'grade'])}", (1150,742), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
 
-    cv.putText(cv_img, f"Q2a: {str(q2.loc[q1.index[0], 'grade'])}", (1150,817), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q2b: {str(q2.loc[q1.index[1], 'grade'])}", (1150,892), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q2c: {str(q2.loc[q1.index[2], 'grade'])}", (1150,967), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(cv_img, f"Q2d: {str(q2.loc[q1.index[3], 'grade'])}", (1150,1042), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q2a: {str(q2.loc[q1.index[0], 'grade'])}", (1150,817), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q2b: {str(q2.loc[q1.index[1], 'grade'])}", (1150,892), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q2c: {str(q2.loc[q1.index[2], 'grade'])}", (1150,967), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img, f"Q2d: {str(q2.loc[q1.index[3], 'grade'])}", (1150,1042), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
 
-    st.session_state["graded_submission"] = cv_img
+    st.session_state["graded_submission"] = warped_img
 
 def next_submission():
     st.session_state["script_index"] += 1
@@ -293,8 +291,6 @@ def clear_files():
      if "graded_submission" in st.session_state:
          del st.session_state["graded_submission"]
 
-    
-
 # ------------------------------------------------------------
     
 st.set_page_config(layout="wide")
@@ -328,7 +324,7 @@ st.markdown(
 
 title_col1, title_col2= st.columns(2)
 with title_col1:
-    st.image("NAS_Faculty Logo.jpg")
+    st.image(BASE_DIR / "NAS_Faculty Logo.jpg")
 
 with title_col2:
     st.title("GGY 168 — Introduction to Physical Geography")
@@ -341,9 +337,9 @@ with st.expander("Instructions", expanded = False):
     3. If there is an error during loading, refresh your browser window and try again.
     4. If it still doesn't work, send me an email with the student's details and move on to the next submission.
     5. Verify that the name on the submission matches the name of the file.
-    6. Transfer the answers on the submission to the spaces provided.
-    7. **DON't** use commas for decimal marks. Please use a full-stop.
-    8. If they didn't add the cardinal direction, select the "NA" option from the drop-down menu.
+    6. Transfer the answers on the submission to the spaces provided. For DMS, enter data using forward slashes. For example 23°25'36'' becomes 23/25/36.
+    7. **DON'T** use commas for decimal marks. Please use a full-stop.
+    8. If they didn't add the cardinal direction, select the "Other" option from the drop-down menu.
     9. When you are done, press the grade button.
     10. Download the graded submission and store it in a separate folder. **DON'T** change the filename.
     """)
@@ -357,13 +353,18 @@ if "uploader_key" not in st.session_state:
 # load class list and submission
 with st.sidebar:
     grader = st.text_input("Name of grader", key="graderName")
+    pin = st.text_input("Enter PIN number",
+                        type = "password",
+                        key = "user_pin_pa1")
     uploaded_files = st.file_uploader("Select the student submission",
                                       type = ["png"],
                                       accept_multiple_files = True,
                                       key = str(st.session_state["uploader_key"]))
     st.button("Clear", on_click = clear_files)
 
-if uploaded_files and grader.strip():
+valid_pin_pa1 = st.secrets.get("secret_pin_pa1")
+    
+if uploaded_files and grader.strip() st.session_state["user_pin"].strip() == valid_pin_pa1:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
@@ -394,6 +395,10 @@ if uploaded_files and grader.strip():
     # prepare values for detector
     aruco_dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
     parameters = cv.aruco.DetectorParameters()
+    parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
+    parameters.cornerRefinementWinSize = 5
+    parameters.cornerRefinementMaxIterations = 100
+    parameters.cornerRefinementMinAccuracy = 0.01
     
     # instantiate detector
     detector = cv.aruco.ArucoDetector(aruco_dictionary, parameters)
@@ -441,6 +446,13 @@ if uploaded_files and grader.strip():
                                         transformation_matrix,
                                         (2480,3508))
 
+        del cv_img
+        gc.collect()
+
+         _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+        b64_str = base64.b64encode(disp_img).decode("utf-8")
+        img_url = f"data:image/png;base64,{b64_str}"
+
 
     except:
         st.error("Can't process submission.")
@@ -451,7 +463,7 @@ if uploaded_files and grader.strip():
     col1, col2 = st.columns(2)
     
     with col1:    
-        prac_viewer(img=img)
+        submission_viewer(img=img)
 
     with col2:
         with st.expander("Question 1", expanded=False):
@@ -522,11 +534,11 @@ if uploaded_files and grader.strip():
             filename = filename + ".png"
             grader_timestamp = datetime.now().isoformat()
             meta_info = PngInfo()
-            meta_info.add_text("Grader:", grader.strip())
-            meta_info.add_text("GradedAt:", grader_timestamp)
-            meta_info.add_text("Q1:", st.session_state["q1"])
-            meta_info.add_text("Q2:", st.session_state["q2"])
-            meta_info.add_text("Grade:", st.session_state["grade"])
+            meta_info.add_text("Grader", grader.strip())
+            meta_info.add_text("GradedAt", grader_timestamp)
+            meta_info.add_text("q1", st.session_state["q1"])
+            meta_info.add_text("q2", st.session_state["q2"])
+            meta_info.add_text("final", st.session_state["final"])
             buffer = io.BytesIO()
             final_img_pil.save(buffer, format="PNG", pnginfo=meta_info)
             with button_col2:

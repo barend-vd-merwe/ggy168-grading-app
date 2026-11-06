@@ -32,9 +32,20 @@ prac_5 = st.Page(
     title = "Practical Assignment 5 — Area"
 )
 
+sck_2_a = st.Page(
+    "pages/sck2-section-a.py",
+    title = "Sick Test 2 — Section A"
+)
+
+sck_2_b = st.Page(
+    "pages/sck2-section-b.py",
+    title = "Sick Test 2 — Section B"
+)
+
 pages = st.navigation({
-    "Home"       : [home_page],
-    "Practicals" : [prac_1, prac_2, prac_3, prac_4, prac_5]
+    "Home"            : [home_page],
+    "Practicals"      : [prac_1, prac_2, prac_3, prac_4, prac_5],
+    "Semester Test 2" : [sck_2_a, sck_2_b]
 })
 
 st.set_page_config(page_title="GGY 168 Grading App", layout="wide")

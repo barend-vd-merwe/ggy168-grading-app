@@ -12,79 +12,75 @@ import base64
 from datetime import datetime
 import textwrap
 import yaml
+from streamlit_gsheets import GSheetsConnection
 from pathlib import Path
+import gc
 
-script_dir = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # custom functions
 # ------------------------------------------------------------
-def prac_viewer(img_url, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
+def submission_viewer(img_url, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
     # openseadragon
     html_osd = f"""
     <!DOCTYPE html>
     <html style="height:100%">
     <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
-    <style>
-    *, *:before, *:after {{
-    box-sizing: border-box;
-    }}
-    
-    body {{
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
+        <style>
+            body {{
     margin: 0;
     padding: 0;
     background-color: #F5F5DC;
     height: 100%;
     width: 100%;
-    overflow: hidden;
-    }}
-    
-    #openseadragon-container {{
-    width: 100%;
-    height: 100%;
-    background-color: #F8F9FA;
-    border: 10px solid #1C252C;
-    border-radius: 8px;
-    }}
-    </style>
+    overflow: hidden;}}
+            #openseadragon-container {{
+                width: 100vw;
+                height: 100vh;
+                background: #F5F5DC;
+                border: 10px solid #374151;
+                border-radius: 8px;
+    box-sizing: border-box;
+            }}
+        </style>
     </head>
-
     <body>
-    <div id="openseadragon-container"></div>
-    <script type="text/javascript">
-
-    var viewer = OpenSeadragon({{
-    id: "openseadragon-container",
-    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-    tileSources: {{
-    type: 'image',
-    url:  '{img_url}'
-    }},
-    
-    defaultZoomLevel: 0,
-    minZoomImageRatio: 0.1,
-    maxZoomPixelRatio: {max_zoom_ratio},
-    visibilityRatio: 1.0,
-    constrainDuringPan: true,
-    homeFillsViewer: false,
-
-    showNavigationControl: true,
-    navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
-    showRotationControl: false,
-    showFullPageControl: true,
-    showHomeControl: true,
-
-    animationTime: 0.3,
-    blendTime: 0.1,
-    springStiffness: 10}});
-    </script>
+        <div id="openseadragon-container"></div>
+        <script type="text/javascript">
+            var viewer = OpenSeadragon({{
+                id: "openseadragon-container",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: {{
+                    type: 'image',
+                    url:  '{img_url}'
+                }},
+                // Performance and Zoom configuration
+                maxZoomPixelRatio: {max_zoom_ratio},
+                minZoomImageRatio: 0.8,
+                visibilityRatio: 0.8,
+                constrainDuringPan: true,
+                
+                // Controls setup
+                showNavigationControl: true,
+                navigationControlAnchor: OpenSeadragon.ControlAnchor.TOP_LEFT,
+                showRotationControl: false,
+                showFullPageControl: true,
+                showHomeControl: true,
+                
+                // Smooth interaction tuning
+                animationTime: 0.3,
+                bllendTime: 0.1,
+                springStiffness: 10
+            }});
+        </script>
     </body>
     </html>
     """
     st.iframe(html_osd, height=height)
 
 def grade_submission():
-    with open(script_dir / "practical-4-distance-memo.yaml", "r", encoding="utf-8") as file:
+    with open(BASE_DIR / "memo-practical-assignment-4.yaml", "r", encoding="utf-8") as file:
         memo = yaml.safe_load(file)
 
     q1 = {
@@ -187,6 +183,14 @@ def grade_submission():
 
     st.session_state["final_grade"] = st.session_state["q1_grade"] + st.session_state["q2_grade"]
 
+    st.session_state["final_grade_prcnt"] = (st.session_state["final_grade"] / 16) * 100 
+
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    gc = conn.read(ttl=0)
+    column_name = "Practical assignment 4 [Total Pts: 16 Percentage] |2934610"
+    gc.loc[gc["Username"] == emplid, column_name] = st.session_state["final_grade_prcnt"]
+    conn.update(data=gc)
+    
     cv.putText(warped_img, str(st.session_state["final_grade"]),(855,455),cv.FONT_HERSHEY_SIMPLEX, 3.0, (0,0,255), 1)
     cv.putText(warped_img, str(st.session_state["student"]),(301,244),cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
         
@@ -248,13 +252,11 @@ st.set_page_config(layout="wide")
 
 title_col1, title_col2= st.columns(2)
 with title_col1:
-    st.image("NAS_Faculty Logo.jpg")
+    st.image(BASE_DIR / "NAS_Faculty Logo.jpg")
 
 with title_col2:
     st.title("GGY 168 — Introduction to Physical Geography")
     st.header("Practical Assignment 4 — Distance")
-
-
 
 with st.expander("Instructions", expanded = False):
     st.markdown(textwrap.dedent("""
@@ -282,13 +284,18 @@ if "uploader_key" not in st.session_state:
 # load class list and submission
 with st.sidebar:
     grader = st.text_input("Name of grader", key="graderName")
+    pin = st.text_input("Enter PIN number",
+                        type = "password",
+                        key = "user_pin_pa4")
     uploaded_files = st.file_uploader("Select the student submission",
                                       type = ["png"],
                                       accept_multiple_files = True,
                                       key = str(st.session_state["uploader_key"]))
     st.button("Clear", on_click = clear_files)
 
-if uploaded_files and grader.strip():
+valid_pin_pa4 = st.secrets.get("secret_pin_pa4")
+    
+if uploaded_files and grader.strip() and st.session_state["user_pin_pa4"].strip() == valid_pin_pa4:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
@@ -307,7 +314,6 @@ if uploaded_files and grader.strip():
     # store the submission in memory as cv2 object
     img_bytes = np.frombuffer(image.getvalue(), dtype=np.uint8)
     cv_img = cv.imdecode(img_bytes, cv.IMREAD_COLOR)
-    img_gray = cv.cvtColor(cv_img, cv.COLOR_BGR2GRAY)
 
     # prepare values for detector
     aruco_dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
@@ -322,7 +328,7 @@ if uploaded_files and grader.strip():
 
     try:
         # use detector to detect aruco markers
-        corners, ids, _ = detector.detectMarkers(img_gray)
+        corners, ids, _ = detector.detectMarkers(cv_img)
 
         # get the coordinates of the center points of each aruco marker
         ids = ids.flatten().tolist()
@@ -358,7 +364,7 @@ if uploaded_files and grader.strip():
                 
         # Set target coordinates
 
-        ac = pd.read_csv(script_dir / "aruco.csv")
+        ac = pd.read_csv(BASE_DIR / "aruco-practical-assignment-4.csv")
 
         target_coords_list = []
 
@@ -377,13 +383,15 @@ if uploaded_files and grader.strip():
                                         flags=cv.INTER_LINEAR,
                                         borderMode=cv.BORDER_CONSTANT,
                                         borderValue=(255, 255, 255))
-
+        del cv_img
+        gc.collect()
+        
         # load intersections files
         shift = 8
         factor = 1 << shift
         bubble_radius = int(round(24 * factor))
-        ov = pd.read_csv(script_dir / "oak_to_val.csv")
-        iu = pd.read_csv(script_dir / "iro_to_upt.csv")
+        ov = pd.read_csv(BASE_DIR / "oak_to_val.csv")
+        iu = pd.read_csv(BASE_DIR / "iro_to_upt.csv")
 
         for i in range(len(ov)):
             rawx = ov.iloc[i]["cvx"]
@@ -399,8 +407,8 @@ if uploaded_files and grader.strip():
             iuy = int(round(rawy * factor))
             cv.circle(warped_img, (iux, iuy), bubble_radius, (0,0,255), 2, shift = shift)
 
-        processed_img = cv.imencode(".png",warped_img)[1]
-        b64_str = base64.b64encode(processed_img).decode("utf-8")
+        _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+        b64_str = base64.b64encode(disp_img).decode("utf-8")
         img_url = f"data:image/png;base64,{b64_str}"
 
     except Exception as e:
@@ -411,7 +419,7 @@ if uploaded_files and grader.strip():
     col1, col2 = st.columns(2)
 
     with col1:    
-        prac_viewer(img_url)
+        submission_viewer(img_url)
 
     with col2:
         # display student details

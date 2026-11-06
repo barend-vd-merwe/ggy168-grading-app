@@ -11,7 +11,10 @@ import base64
 from datetime import datetime
 import yaml
 from streamlit_gsheets import GSheetsConnection
+from pathlib import Path
 import gc
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # custom functions
 # ------------------------------------------------------------
@@ -190,10 +193,12 @@ def grade_submission():
     st.session_state["wrk_grd"] = wrk_grd
     st.session_state["final_grade"] = tbl_grd + ta_grd + wrk_grd
 
+    st.session_state["final_grade_prcnt"] = (st.session_state["final_grade"] / 22) * 100
+    
     conn = st.connection("gsheets", type=GSheetsConnection)
     gc = conn.read(ttl=0)
-    column_name = "Practical assignment 5 [Total Pts: 13 Score] |2934611"
-    gc.loc[gc["Username"] == emplid, column_name] = st.session_state["final_grade"]
+    column_name = "Practical assignment 5 [Total Pts: 22 Percentage] |2934611"
+    gc.loc[gc["Username"] == emplid, column_name] = st.session_state["final_grade_prcnt"]
     conn.update(data=gc)
     
     cv.putText(warped_img,str(df.iloc[df["s"] == 1, 13].item()),(2325,645), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
@@ -209,8 +214,6 @@ def grade_submission():
 
     st.session_state["graded_submission"] = warped_img
     
-    
-
 def next_submission():
     st.session_state["script_index"] += 1
     st.session_state["editor_version"] += 1
@@ -265,11 +268,11 @@ st.markdown(
 
 title_col1, title_col2= st.columns(2)
 with title_col1:
-    st.image("NAS_Faculty Logo.jpg")
+    st.image(BASE_DIR / "NAS_Faculty Logo.jpg")
 
 with title_col2:
     st.title("GGY 168 — Introduction to Physical Geography")
-    st.header("Practical 5 — Area")
+    st.header("Practical Assignment 5 — Area")
 
 with st.expander("Instructions", expanded = False):
     st.markdown("""
@@ -300,19 +303,19 @@ with st.sidebar:
     grader = st.text_input("Name of grader", key="graderName")
     pin = st.text_input("Enter PIN number",
                         type = "password",
-                        key = "user_pin")
+                        key = "user_pin_pa5")
     uploaded_files = st.file_uploader("Select the student submission",
                                       type = ["png"],
                                       accept_multiple_files = True,
                                       key = str(st.session_state["uploader_key"]))
     st.button("Clear", on_click = clear_files)
 
-with open ("memo.yaml", "r", encoding = "utf-8") as file:
+with open (BASE_DIR / "memo-practical-assignment-5.yaml", "r", encoding = "utf-8") as file:
         memo = yaml.safe_load(file)
 
-valid_pin = st.secrets.get("secret_pin")
+valid_pin_pa5 = st.secrets.get("secret_pin_pa5")
         
-if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() == valid_pin:
+if uploaded_files and grader.strip() and st.session_state["user_pin_pa5"].strip() == valid_pin_pa5:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
@@ -378,7 +381,7 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
 
         # Set target coordinates
 
-        ac = pd.read_csv("aruco.csv")
+        ac = pd.read_csv(BASE_DIR / "aruco-practical-assignment-5.csv")
 
         target_coords_list = []
 

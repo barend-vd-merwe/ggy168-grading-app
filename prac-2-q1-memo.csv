@@ -1,0 +1,5 @@
+q,lat_deg,lat_min,lat_sec,lat_card,lon_deg,lon_min,lon_sec,lon_card,fc,pc,grade
+a,24,10,55,S,30,21,14,E,2.0,4.0,0.0
+b,24,12,48,S,30,21,43,E,2.0,4.0,0.0
+c,24,12,5,S,30,22,26,E,2.0,4.0,0.0
+d,24,12,12,S,30,22,36,E,2.0,4.0,0.0

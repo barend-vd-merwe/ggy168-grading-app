@@ -24,13 +24,18 @@ prac_3 = st.Page(
 
 prac_4 = st.Page(
     "pages/practical-assignment-4.py",
-    title = "Practical Assignment 4 — Direction"
+    title = "Practical Assignment 4 — Distance"
 )
 
 prac_5 = st.Page(
     "pages/practical-assignment-5.py",
     title = "Practical Assignment 5 — Area"
 )
+
+pages = st.navigation({
+    "Home"       : [home_page],
+    "Practicals" : [prac_1, prac_2, prac_3, prac_4, prac_5]
+})
 
 st.set_page_config(page_title="GGY 168 Grading App", layout="wide")
 pages.run()

@@ -364,7 +364,7 @@ with st.sidebar:
 
 valid_pin_pa1 = st.secrets.get("secret_pin_pa1")
     
-if uploaded_files and grader.strip() st.session_state["user_pin"].strip() == valid_pin_pa1:
+if uploaded_files and grader.strip() and st.session_state["user_pin_pa1"].strip() == valid_pin_pa1:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
@@ -449,7 +449,7 @@ if uploaded_files and grader.strip() st.session_state["user_pin"].strip() == val
         del cv_img
         gc.collect()
 
-         _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+        _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
         b64_str = base64.b64encode(disp_img).decode("utf-8")
         img_url = f"data:image/png;base64,{b64_str}"
 
@@ -457,13 +457,11 @@ if uploaded_files and grader.strip() st.session_state["user_pin"].strip() == val
     except:
         st.error("Can't process submission.")
 
-    
-
     # display submission and grading tools in two cols
     col1, col2 = st.columns(2)
     
     with col1:    
-        submission_viewer(img=img)
+        submission_viewer(img_url)
 
     with col2:
         with st.expander("Question 1", expanded=False):

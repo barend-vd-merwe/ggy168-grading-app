@@ -18,6 +18,36 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # custom functions
 # ------------------------------------------------------------
+def sift_align(template, target):
+    gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+    gray_target = cv.cvtColor(target, cv.COLOR_BGR2GRAY)
+
+    sift = cv.SIFT_create()
+    keypoints_template, descriptors_template = sift.detectAndCompute(gray_template, None)
+    keypoints_target, descriptors_target = sift.detectAndCompute(gray_target, None)
+
+    matcher = cv.BFMatcher(cv.NORM_L2, crossCheck = True)
+    matches = matcher.match(descriptors_template, descriptors_target)
+
+    # good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
+    # if len(good_matches) < 4:
+    #     raise ValueError("Not enough matching points found between the images.")
+    matches = sorted(matches, key=lambda x: x.distance)
+    good_matches = [m for m in matches if m.distance < 200.0]
+    if len(good_matches) < 4:
+        raise ValueError("Not enough cross-checked matching points found between the images.")
+
+    target_pts = np.float32([keypoints_target[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+    template_pts = np.float32([keypoints_template[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+    h_matrix, _ = cv.findHomography(target_pts, template_pts, cv.RANSAC, 5.0)
+    # height, width, _ = template.shape
+    return cv.warpPerspective(target,
+                              h_matrix,
+                              (2480,3508),
+                              borderMode=cv.BORDER_CONSTANT,
+                              borderValue=(255, 255, 255))
+
 def submission_viewer(img_url, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
     # openseadragon
     html_osd = f"""
@@ -380,9 +410,35 @@ if uploaded_files and grader.strip() and st.session_state["user_pin_pa2"].strip(
         img_url = f"data:image/png;base64,{b64_str}"
 
 
-    except Exception as e:
-        st.error(f"Processing failed: {e}")
-        img_url = None
+    except:
+        try:
+            template_img = cv.imread(BASE_DIR / "practical-assignment-2-template.png")
+            warped_img = sift_align(template_img, cv_img)
+            
+            del cv_img
+            gc.collect()
+
+            # full credit squares
+            fc = pd.read_csv(BASE_DIR / "prac-2-plot-fc.csv")
+            cv.rectangle(warped_img, (fc.iloc[0,3], fc.iloc[0,4]), (fc.iloc[1,3], fc.iloc[1,4]), (0,0,255), 2)
+            cv.rectangle(warped_img, (fc.iloc[2,3], fc.iloc[2,4]), (fc.iloc[3,3], fc.iloc[3,4]), (0,0,255), 2)
+            cv.rectangle(warped_img, (fc.iloc[4,3], fc.iloc[4,4]), (fc.iloc[5,3], fc.iloc[5,4]), (0,0,255), 2)
+            cv.rectangle(warped_img, (fc.iloc[6,3], fc.iloc[6,4]), (fc.iloc[7,3], fc.iloc[7,4]), (0,0,255), 2)
+
+            # patial credit regions
+            pc = pd.read_csv("prac-2-plot-pc.csv")
+            cv.rectangle(warped_img, (pc.iloc[0,3], pc.iloc[0,4]), (pc.iloc[1,3], pc.iloc[1,4]), (255,0,0), 2)
+            cv.rectangle(warped_img, (pc.iloc[2,3], pc.iloc[2,4]), (pc.iloc[3,3], pc.iloc[3,4]), (255,0,0), 2)
+            cv.rectangle(warped_img, (pc.iloc[4,3], pc.iloc[4,4]), (pc.iloc[5,3], pc.iloc[5,4]), (255,0,0), 2)
+            cv.rectangle(warped_img, (pc.iloc[6,3], pc.iloc[6,4]), (pc.iloc[7,3], pc.iloc[7,4]), (255,0,0), 2)
+
+            _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+            b64_str = base64.b64encode(disp_img).decode("utf-8")
+            img_url = f"data:image/png;base64,{b64_str}"
+            
+        except Exception as e:
+            st.error(f"Processing failed: {e}")
+            img_url = None
 
     # display submission and grading tools in two cols
     col1, col2 = st.columns(2)

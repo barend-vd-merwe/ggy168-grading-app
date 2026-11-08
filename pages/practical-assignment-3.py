@@ -19,6 +19,36 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # custom functions
 # ------------------------------------------------------------
+def sift_align(template, target):
+    gray_template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+    gray_target = cv.cvtColor(target, cv.COLOR_BGR2GRAY)
+
+    sift = cv.SIFT_create()
+    keypoints_template, descriptors_template = sift.detectAndCompute(gray_template, None)
+    keypoints_target, descriptors_target = sift.detectAndCompute(gray_target, None)
+
+    matcher = cv.BFMatcher(cv.NORM_L2, crossCheck = True)
+    matches = matcher.match(descriptors_template, descriptors_target)
+
+    # good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
+    # if len(good_matches) < 4:
+    #     raise ValueError("Not enough matching points found between the images.")
+    matches = sorted(matches, key=lambda x: x.distance)
+    good_matches = [m for m in matches if m.distance < 200.0]
+    if len(good_matches) < 4:
+        raise ValueError("Not enough cross-checked matching points found between the images.")
+
+    target_pts = np.float32([keypoints_target[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+    template_pts = np.float32([keypoints_template[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+    h_matrix, _ = cv.findHomography(target_pts, template_pts, cv.RANSAC, 2.5)
+    # height, width, _ = template.shape
+    return cv.warpPerspective(target,
+                              h_matrix,
+                              (2480,3508),
+                              borderMode=cv.BORDER_CONSTANT,
+                              borderValue=(255, 255, 255))
+
 def submission_viewer(img_url, height=700, max_zoom_ratio=4.0, key="osd_viewer"):
     # openseadragon
     html_osd = f"""
@@ -380,7 +410,6 @@ with title_col2:
     st.title("GGY 168 — Introduction to Physical Geography")
     st.header("Practical Assignment 3 — Direction")
 
-
 with st.expander("Instructions", expanded = False):
     st.markdown(textwrap.dedent("""
     1. Enter your name in the provided field.
@@ -512,9 +541,21 @@ if uploaded_files and grader.strip() and st.session_state["user_pin_pa3"].strip(
         img_url = f"data:image/png;base64,{b64_str}"
 
 
-    except Exception as e:
-        st.error(f"Processing failed: {e}")
-        img_url = None
+    except:
+        try:
+            template_img = cv.imread(BASE_DIR / "practical-assignment-3-template.png")
+            warped_img = sift_align(template_img, cv_img)
+            
+            del cv_img
+            gc.collect()
+
+            _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+            b64_str = base64.b64encode(disp_img).decode("utf-8")
+            img_url = f"data:image/png;base64,{b64_str}"
+            
+        except Exception as e:
+            st.error(f"Processing failed: {e}")
+            img_url = None
 
     # display submission and grading tools in two cols
     col1, col2 = st.columns(2)

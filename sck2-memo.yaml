@@ -1,0 +1,77 @@
+q1a:
+  ans: -1.3
+  fc: 0.0009
+  pc: 0.0018
+q1b:
+  ans: "Yes"
+q1c:
+  ans: "fc"
+q2a:
+  ans: "Medium Sand"
+q2b:
+  ans: "Pebble"
+q3:
+  ans: 3
+  fc: 0.001528771
+  pc: 0.003057542
+q4:
+  ans: "Blade or Rod"
+q5a:
+  ans: "No"
+q6a:
+  ans: "Clay or Clay Loam"
+q6b:
+  ans: "Moderately fine or Fine"
+q6c:
+  ans: "Loamy soils or Clayey soils"
+q7a:
+  ans: 1408.7500
+  fc: 4.652365
+  pc: 9.30473
+q7b:
+  ans: "Site A"
+q8a:
+  ans: 21.0000
+  fc: 0.010725
+  pc: 0.02145
+q8b:
+  ans: 48.0
+  fc: 0.010725
+  pc: 0.02145
+q8c:
+  ans: 27.0
+  fc: 0.02155
+  pc: 0.0431
+q9a:
+  ans: 44.0
+  fc: 1.5
+  pc: 3.0
+q9b:
+  ans: 224.0
+  fc: 1.5
+  pc: 3.0
+q10:
+  ans: 19.8667
+  fc: 0.0024
+  pc: 0.0048
+q11a:
+  ans: 119.8667
+  fc: 1.5025
+  pc: 3.005
+q11b:
+  ans: 299.8667
+  fc: 1.5025
+  pc: 3.005
+q12:
+  ans: 276.2500
+  fc: 0.0004
+  pc: 0.0008
+q13:
+  ans: 16176.4707
+  fc: 713.6734
+  pc: 1427.347
+q14:
+  ans: 26352.9414
+  fc: 4339.287
+  pc: 8678.573
+  
